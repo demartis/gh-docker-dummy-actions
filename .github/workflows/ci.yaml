@@ -70,7 +70,7 @@ jobs:
       -
         name: Image simple test
         run: |
-          docker run --rm dummy:latest bash -c "ls"
+          docker run --rm dummy:latest bash -c "ls $GITHUB_WORKSPACE"
 
       - name: Image simple test
         run: |
