@@ -1,0 +1,124 @@
+# ------------------------------------------------------------------------
+# Copyright (c) 2020-2023 Riccardo De Martis. MIT License.
+# All Trademarks referred to are the property of their respective owners.
+# ------------------------------------------------------------------------
+
+name: sub.release
+
+on:
+  workflow_call:
+    inputs:
+      DOCKERHUB_REPO:
+        required: true
+        type: string
+      DOCKERHUB_TAG:
+        required: true
+        type: string
+      DOCKER_CONTEXT:
+        required: true
+        type: string
+      is_latest:
+        required: false
+        default: false
+        type: boolean
+      is_latest_meshlab:
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
+
+env:
+  TEST_TAG: test_${{ inputs.DOCKERHUB_TAG }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      -
+        name: Create cache folders
+        run: mkdir /tmp/.buildx-cache /tmp/.buildx-cache-new
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.DOCKERHUB_REPO }}
+
+      -
+        name: Build and push :${{ env.TEST_TAG }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ inputs.DOCKER_CONTEXT }}
+          load: true
+          platforms: linux/amd64
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          tags: ${{ inputs.DOCKERHUB_REPO }}:${{ env.TEST_TAG }}
+
+      - # Temp fix
+        # https://github.com/docker/build-push-action/issues/252
+        # https://github.com/moby/buildkit/issues/1896
+        name: Move cache (Temp fix)
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      -
+        name: Image simple test
+        run: |
+          docker run --rm ${{ inputs.DOCKERHUB_REPO }}:${{ env.TEST_TAG }}
+      -
+        name: Image MCR version check Test
+        run: |
+          ls && docker run -v `pwd`/../test:/test --rm ${{ inputs.DOCKERHUB_REPO }}:${{ env.TEST_TAG }} bash /test/mcr_version.sh ${{ inputs.DOCKERHUB_TAG }} 
+
+      -
+        name: Build and push (cached) :${{ inputs.DOCKERHUB_TAG }} ${{ inputs.is_latest == true && 'and :latest' || '' }} ${{ inputs.is_latest_meshlab == true && 'and :latest-meshlab' || '' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ inputs.DOCKER_CONTEXT }}
+          push: true
+          platforms: linux/amd64
+          cache-from: type=local,src=/tmp/.buildx-cache
+#          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          tags: |
+            ${{ inputs.DOCKERHUB_REPO }}:${{ inputs.DOCKERHUB_TAG }}
+            ${{ inputs.is_latest == true && format('{0}:latest', inputs.DOCKERHUB_REPO) || '' }}
+            ${{ inputs.is_latest_meshlab == true && format('{0}:latest-meshlab', inputs.DOCKERHUB_REPO) || '' }}
+
+#      - # Temp fix
+#        # https://github.com/docker/build-push-action/issues/252
+#        # https://github.com/moby/buildkit/issues/1896
+#        name: Move cache (Temp fix)
+#        run: |
+#          rm -rf /tmp/.buildx-cache
+#          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      -
+        name: MCR version check
+        run: |
+          docker run -v `pwd`/../test:/test --rm ${{ inputs.DOCKERHUB_REPO }}:${{ env.TEST_TAG }} bash /test/mcr_version.sh ${{ inputs.DOCKERHUB_TAG }}
+      -
+        name: MCR Test (Temp skipped)
+        continue-on-error: true
+        run: |
+          docker run --rm ${{ inputs.DOCKERHUB_REPO }}:${{ inputs.DOCKERHUB_TAG }} echo "TODO: ADD MCR TEST"
