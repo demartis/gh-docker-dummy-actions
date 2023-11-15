@@ -71,11 +71,14 @@ jobs:
         name: Image simple test
         run: |
           echo ${{ github.workspace }}
+          ls ${{ github.workspace }}
+          ls ${{ github.workspace }}/test
 
-      -
-        name: Image simple test
-        run: |
-          docker run --rm dummy:latest ls ${{ github.workspace }}
+#      -
+#        name: Image simple test
+#        run: |
+#          docker run --rm dummy:latest ls ${{ github.workspace }}
+
 
       - name: Image simple test
         run: |
