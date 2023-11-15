@@ -1,5 +1,7 @@
 
-echo $VARIAB
+echo VARIAB $VARIAB
+
+echo INPUT $1
 
 #cat $MCR_MASTER_PATH/VersionInfo.xml
 #
