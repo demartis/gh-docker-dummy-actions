@@ -74,7 +74,7 @@ jobs:
 
       - name: Image simple test
         run: |
-          docker run -v `pwd`/../test:/test --rm dummy:latest  bash -c "chmod +x /test/mcr_version.sh && /test/mcr_version.sh PRova"
+          docker run -v `pwd`/test:/test --rm dummy:latest  bash -c "chmod +x /test/mcr_version.sh && /test/mcr_version.sh PRova"
 #      -
 #        name: Image MCR version check Test
 #        run: |
